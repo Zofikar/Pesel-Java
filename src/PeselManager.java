@@ -111,6 +111,87 @@ public class PeselManager {
         return sum % 10;
     }
 
+    private static int getYear() {
+        System.out.println("Podaj czterocyfrowy rok urodzenia, np. 1993.");
+        Scanner scanner = new Scanner(System.in);
+        int year = scanner.nextInt();
+        if (year < 1900 || year > 2299) {
+            System.out.println("Podałeś złą formę roku, wciśnij p jeśli chcesz podać ponownie rok lub wciśnij inny klawisz jeśli chcesz zakończyć");
+            if (checkButtonPress('p')) {
+                return getYear();
+            } else {
+                System.exit(0);
+            }
+        }
+        return year;
+    }
+
+    private static int getMonth() {
+        System.out.println("Podaj miesiąc urodzenia, np. czerwiec albo 6.");
+        Scanner scanner = new Scanner(System.in);
+        String input = scanner.nextLine().trim();
+
+        String[] monthNames = {"", "styczeń", "luty", "marzec", "kwiecień", "maj", "czerwiec", "lipiec", "sierpień", "wrzesień", "październik", "listopad", "grudzień"};
+        int month = 0;
+
+        try {
+            month = Integer.parseInt(input);
+        } catch (NumberFormatException e) {
+            for (int i = 1; i < monthNames.length; i++) {
+                if (monthNames[i].equalsIgnoreCase(input)) {
+                    month = i;
+                    break;
+                }
+            }
+        }
+
+        if (month < 1 || month > 12) {
+            System.out.println("Nieprawidłowy miesiąc. Wciśnij p jeśli chcesz podać ponownie, lub inny klawisz by zakończyć.");
+            if (checkButtonPress('p')) {
+                return getMonth();
+            } else {
+                System.exit(0);
+            }
+        }
+        return month;
+    }
+
+    private static int getDay(int maxDay) {
+        System.out.printf("Podaj dzień urodzenia (1-%d):%n", maxDay);
+        Scanner scanner = new Scanner(System.in);
+        int day = scanner.nextInt();
+        if (day < 1 || day > maxDay) {
+            System.out.println("Nieprawidłowy dzień. Wciśnij p jeśli chcesz podać ponownie, lub inny klawisz by zakończyć.");
+            if (checkButtonPress('p')) {
+                return getDay(maxDay);
+            } else {
+                System.exit(0);
+            }
+        }
+        return day;
+    }
+
+    private static boolean checkButtonPress(char expectedChar) {
+        Scanner scanner = new Scanner(System.in);
+        String input = scanner.nextLine().trim();
+        return input.length() == 1 && input.charAt(0) == expectedChar;
+    }
+
+    private static boolean isMale() {
+        System.out.println("Podaj płeć: k - kobieta, m - mężczyzna.");
+        Scanner scanner = new Scanner(System.in);
+        String input = scanner.nextLine().trim().toLowerCase();
+        if (input.equals("m")) return true;
+        if (input.equals("k")) return false;
+        System.out.println("Nieprawidłowa płeć. Wciśnij p jeśli chcesz podać ponownie, lub inny klawisz by zakończyć.");
+        if (checkButtonPress('p')) {
+            return isMale();
+        } else {
+            System.exit(0);
+        }
+        return false; // unreachable
+    }
+
     public static void main(String[] args) throws IOException {
         Scanner scanner = new Scanner(System.in);
         List<IndexedPesel> pesels = new ArrayList<>();
@@ -159,21 +240,23 @@ public class PeselManager {
             if (scanner.next().equalsIgnoreCase("t"))
                 pesels.add(new IndexedPesel(pesels.size(), newPesel));
 
-            if (scanner.next().equalsIgnoreCase("t"))
+            if (scanner.next().equalsIgnoreCase("t")){
                 pesels.add(new IndexedPesel(pesels.size(), newPesel));
+                pesels.sort(PeselManager::order);
+                try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
+                    for (IndexedPesel indexedPesel : pesels) {
+                        writer.write(stringifyPesel(indexedPesel));
+                        writer.newLine();
+                    }
+                }
+            }
 
             System.out.print("Do you want to add another entry? (y/n): ");
             continueAdding = scanner.next().equalsIgnoreCase("y");
 
         } while (continueAdding);
 
-        // Save data to file
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
-            for (IndexedPesel indexedPesel : pesels) {
-                writer.write(stringifyPesel(indexedPesel));
-                writer.newLine();
-            }
-        }
+
 
         scanner.close();
     }

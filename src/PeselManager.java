@@ -1,6 +1,12 @@
 import java.io.*;
 import java.util.*;
 
+class InputException extends Exception {
+    public InputException(String message) {
+        super(message);
+    }
+}
+
 public class PeselManager {
 
     public static boolean isEven(int number) {
@@ -32,6 +38,8 @@ public class PeselManager {
         } else if (month > 20) {
             month -= 20;
             year += 2000;
+        } else {
+            year += 1900;
         }
 
         Pesel pesel = new Pesel(day, month, year, ordinalNumber, genderDigit, controlDigit);
@@ -54,14 +62,13 @@ public class PeselManager {
         return computeControlDigit(pesel) == pesel.controlDigit;
     }
 
-    public static String stringifyPesel(IndexedPesel indexedPesel) {
-        Pesel pesel = indexedPesel.pesel;
+    public static String stringifyPesel(Pesel pesel) {
         int monthOffset = 0;
         if (pesel.year >= 2200) monthOffset = 60;
         else if (pesel.year >= 2100) monthOffset = 40;
         else if (pesel.year >= 2000) monthOffset = 20;
 
-        return String.format("%d %02d%02d%02d%03d%01d%01d", indexedPesel.index,
+        return String.format("%02d%02d%02d%03d%01d%01d",
                 pesel.year % 100, pesel.month + monthOffset, pesel.day,
                 pesel.ordinalNumber, pesel.genderDigit, pesel.controlDigit);
     }
@@ -88,45 +95,43 @@ public class PeselManager {
     }
 
     public static int order(IndexedPesel val1, IndexedPesel val2) {
-        if (isOlder(val1.pesel, val2.pesel)) return -1;
+        if (isOlder(val1.pesel, val2.pesel)) return 1;
         if (isSameAge(val1.pesel, val2.pesel)) {
-            int rs = genderCompare(val1.pesel, val2.pesel);
-            return rs != 0 ? rs : Integer.compare(val1.index, val2.index);
+            return genderCompare(val1.pesel, val2.pesel);
         }
-        return 1;
+        return -1;
     }
 
     public static int computeControlDigit(Pesel pesel) {
-        int[] weights = {1, 3, 7, 9, 1, 3, 7, 9, 1, 3};
+        int[] weights = { 1, 3, 7, 9, 1, 3, 7, 9, 1, 3};
         int sum = 0;
 
-        String peselStr = String.format("%02d%02d%02d%03d%01d",
-                pesel.year % 100, pesel.month, pesel.day,
-                pesel.ordinalNumber, pesel.genderDigit);
+        String peselStr = stringifyPesel(pesel);
 
         for (int i = 0; i < 10; i++) {
-            sum += (peselStr.charAt(i) - '0') * weights[i];
+            int curr = (peselStr.charAt(i) - '0') * weights[i];
+            sum += curr;
         }
 
-        return sum % 10;
+        return 10 - (sum % 10);
     }
 
-    private static int getYear() {
+    private static int getYear() throws InputException {
         System.out.println("Podaj czterocyfrowy rok urodzenia, np. 1993.");
         Scanner scanner = new Scanner(System.in);
         int year = scanner.nextInt();
         if (year < 1900 || year > 2299) {
             System.out.println("Podałeś złą formę roku, wciśnij p jeśli chcesz podać ponownie rok lub wciśnij inny klawisz jeśli chcesz zakończyć");
-            if (checkButtonPress('p')) {
+            if (checkButtonPress()) {
                 return getYear();
             } else {
-                System.exit(0);
+                throw new InputException("Invalid year");
             }
         }
         return year;
     }
 
-    private static int getMonth() {
+    private static int getMonth() throws InputException {
         System.out.println("Podaj miesiąc urodzenia, np. czerwiec albo 6.");
         Scanner scanner = new Scanner(System.in);
         String input = scanner.nextLine().trim();
@@ -146,51 +151,72 @@ public class PeselManager {
         }
 
         if (month < 1 || month > 12) {
-            System.out.println("Nieprawidłowy miesiąc. Wciśnij p jeśli chcesz podać ponownie, lub inny klawisz by zakończyć.");
-            if (checkButtonPress('p')) {
+            System.out.println("Podałeś złą formę miesiąca, wciśnij p jeśli chcesz podać ponownie miesiąc lub wciśnij inny klawisz jeśli chcesz zakończyć");
+            if (checkButtonPress()) {
                 return getMonth();
             } else {
-                System.exit(0);
+                throw new InputException("Invalid month");
             }
         }
         return month;
     }
 
-    private static int getDay(int maxDay) {
-        System.out.printf("Podaj dzień urodzenia (1-%d):%n", maxDay);
+    private static int getDay(int maxDay) throws InputException {
+        System.out.println("Podaj numer dnia miesiąca urodzenia, np. 23.");
         Scanner scanner = new Scanner(System.in);
         int day = scanner.nextInt();
         if (day < 1 || day > maxDay) {
-            System.out.println("Nieprawidłowy dzień. Wciśnij p jeśli chcesz podać ponownie, lub inny klawisz by zakończyć.");
-            if (checkButtonPress('p')) {
+            System.out.println("Podałeś zły numer, wciśnij p jeśli chcesz podać ponownie numer dnia lub wciśnij inny klawisz jeśli chcesz zakończyć");
+            if (checkButtonPress()) {
                 return getDay(maxDay);
             } else {
-                System.exit(0);
+                throw new InputException("Invalid day");
             }
         }
         return day;
     }
 
-    private static boolean checkButtonPress(char expectedChar) {
+    private static boolean checkButtonPress() {
         Scanner scanner = new Scanner(System.in);
         String input = scanner.nextLine().trim();
-        return input.length() == 1 && input.charAt(0) == expectedChar;
+        return input.length() == 1 && input.charAt(0) == 'p';
     }
 
-    private static boolean isMale() {
+    private static boolean isMale() throws InputException {
         System.out.println("Podaj płeć: k - kobieta, m - mężczyzna.");
         Scanner scanner = new Scanner(System.in);
         String input = scanner.nextLine().trim().toLowerCase();
         if (input.equals("m")) return true;
         if (input.equals("k")) return false;
         System.out.println("Nieprawidłowa płeć. Wciśnij p jeśli chcesz podać ponownie, lub inny klawisz by zakończyć.");
-        if (checkButtonPress('p')) {
+        if (checkButtonPress()) {
             return isMale();
-        } else {
-            System.exit(0);
         }
-        return false; // unreachable
+        throw new InputException("Invalid gender");
     }
+
+    public static int computeOrdinalNumberAndGenderDigit(Pesel pesel, List<IndexedPesel> others, boolean isFemale) {
+        int sameGenderOnSameDay = 0;
+
+        for (IndexedPesel other : others) {
+            if (isSameDay(pesel, other.pesel) && isFemale == isFemale(other.pesel)) {
+                sameGenderOnSameDay++;
+            }
+        }
+
+        sameGenderOnSameDay *= 2;
+
+        if (!isFemale) {
+            sameGenderOnSameDay += 1;
+        }
+
+        if (sameGenderOnSameDay >= 10000) {
+            throw new IllegalStateException("Too many same gender people on the same day");
+        }
+
+        return sameGenderOnSameDay;
+    }
+
 
     public static void main(String[] args) throws IOException {
         Scanner scanner = new Scanner(System.in);
@@ -211,48 +237,36 @@ public class PeselManager {
 
         boolean continueAdding;
         do {
-            Pesel newPesel = new Pesel();
-            System.out.print("Enter year of birth (4 digits): ");
-            newPesel.year = scanner.nextInt();
+            try {
+                Pesel newPesel = new Pesel();
+                newPesel.year = getYear();
+                newPesel.month = getMonth();
+                newPesel.day = getDay(daysInMonth(newPesel.month, newPesel.year));
+                boolean isMale = isMale();
+                newPesel.ordinalNumber = computeOrdinalNumberAndGenderDigit(newPesel, pesels, !isMale);
+                newPesel.genderDigit = newPesel.ordinalNumber % 10;
+                newPesel.ordinalNumber /= 10;
+                newPesel.controlDigit = computeControlDigit(newPesel);
 
-            System.out.print("Enter month of birth (1-12): ");
-            newPesel.month = scanner.nextInt();
+                System.out.printf("Czy chcesz dokonać wpisu %4d, %d, %d, %c? Klawisz t – tak, pozostałe – nie.%n",
+                        newPesel.year, newPesel.month, newPesel.day, isEven(newPesel.genderDigit) ? 'k' : 'm');
 
-            System.out.print("Enter day of birth: ");
-            newPesel.day = scanner.nextInt();
 
-            System.out.print("Enter gender (m/f): ");
-            char gender = scanner.next().charAt(0);
-            boolean isFemale = (gender == 'f');
-
-            newPesel.ordinalNumber = pesels.stream()
-                    .filter(p -> isSameDay(p.pesel, newPesel) && isFemale(p.pesel) == isFemale)
-                    .mapToInt(p -> 1)
-                    .sum() * 2 + (isFemale ? 0 : 1);
-
-            newPesel.genderDigit = newPesel.ordinalNumber % 10;
-            newPesel.ordinalNumber /= 10;
-            newPesel.controlDigit = computeControlDigit(newPesel);
-
-            System.out.printf("Czy chcesz dokonać wpisu %4d, %d, %d, %c? Klawisz t – tak, pozostałe – nie.%n",
-                    newPesel.year, newPesel.month, newPesel.day, isEven(newPesel.genderDigit) ? 'k' : 'm');
-
-            if (scanner.next().equalsIgnoreCase("t"))
-                pesels.add(new IndexedPesel(pesels.size(), newPesel));
-
-            if (scanner.next().equalsIgnoreCase("t")){
-                pesels.add(new IndexedPesel(pesels.size(), newPesel));
-                pesels.sort(PeselManager::order);
-                try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
-                    for (IndexedPesel indexedPesel : pesels) {
-                        writer.write(stringifyPesel(indexedPesel));
-                        writer.newLine();
+                if (scanner.next().equalsIgnoreCase("t")){
+                    pesels.add(new IndexedPesel(pesels.size(), newPesel));
+                    pesels.sort(PeselManager::order);
+                    try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
+                        for (IndexedPesel indexedPesel : pesels) {
+                            writer.write(String.format("%d %s\n", indexedPesel.index, stringifyPesel(indexedPesel.pesel)));
+                        }
                     }
                 }
+            } catch (InputException ignored) {
             }
 
-            System.out.print("Do you want to add another entry? (y/n): ");
-            continueAdding = scanner.next().equalsIgnoreCase("y");
+
+            System.out.println("Czy chcesz dokonać kolejnego wpisu? Klawisz t – tak, pozostałe – nie.");
+            continueAdding = scanner.next().equalsIgnoreCase("t");
 
         } while (continueAdding);
 
